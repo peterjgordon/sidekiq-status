@@ -129,6 +129,9 @@ function setPerPage(select){
             <% elsif container["status"] == "failed" %>
               <input type="hidden" name="_method" value="put" />
               <input type="submit" class="btn btn-warning btn-xs" value="Retry Now" />
+            <% elsif container["status"] == "working" %>
+              <input type="hidden" name="_method" value="put" />
+              <input type="submit" class="btn btn-danger btn-xs" value="KILL" />
             <% end %>
           </form>
         </div>

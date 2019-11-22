@@ -14,12 +14,15 @@ module Sidekiq::Status
       def per_page_opts= arr
         @per_page_opts = arr
       end
+
       def per_page_opts
         @per_page_opts || DEFAULT_PER_PAGE_OPTS
       end
+
       def default_per_page= val
         @default_per_page = val
       end
+
       def default_per_page
         @default_per_page || DEFAULT_PER_PAGE
       end
@@ -99,14 +102,14 @@ module Sidekiq::Status
         sort_dir = "asc"
 
         if params[:sort_dir] == "asc"
-          @statuses = @statuses.sort { |x,y| (x[sort_by] <=> y[sort_by]) || -1 }
+          @statuses = @statuses.sort { |x, y| (x[sort_by] <=> y[sort_by]) || -1 }
         else
           sort_dir = "desc"
-          @statuses = @statuses.sort { |y,x| (x[sort_by] <=> y[sort_by]) || 1 }
+          @statuses = @statuses.sort { |y, x| (x[sort_by] <=> y[sort_by]) || 1 }
         end
 
         if params[:status] && params[:status] != "all"
-          @statuses = @statuses.select {|job_status| job_status["status"] == params[:status] }
+          @statuses = @statuses.select { |job_status| job_status["status"] == params[:status] }
         end
 
         # Sidekiq pagination
@@ -125,7 +128,7 @@ module Sidekiq::Status
         ]
 
         @headers.each do |h|
-          h[:url] = "statuses?" + params.merge("sort_by" => h[:id], "sort_dir" => (sort_by == h[:id] && sort_dir == "asc") ? "desc" : "asc").map{|k, v| "#{k}=#{CGI.escape v.to_s}"}.join("&")
+          h[:url] = "statuses?" + params.merge("sort_by" => h[:id], "sort_dir" => (sort_by == h[:id] && sort_dir == "asc") ? "desc" : "asc").map { |k, v| "#{k}=#{CGI.escape v.to_s}" }.join("&")
           h[:class] = "sorted_#{sort_dir}" if sort_by == h[:id]
         end
 
@@ -147,14 +150,18 @@ module Sidekiq::Status
       app.put '/statuses' do
         job = Sidekiq::RetrySet.new.find_job(params[:jid])
         job ||= Sidekiq::DeadSet.new.find_job(params[:jid])
-        job.retry if job
-        halt [302, { "Location" => request.referer }, []]
+        if job
+          job.retry
+        else
+          Sidekiq.redis { |c| c.setex("cancelled-#{params[:jid]}", 86400, 1) }
+        end
+        halt [302, {"Location" => request.referer}, []]
       end
 
       # Removes a completed job from the status list
       app.delete '/statuses' do
         Sidekiq::Status.delete(params[:jid])
-        halt [302, { "Location" => request.referer }, []]
+        halt [302, {"Location" => request.referer}, []]
       end
     end
   end
